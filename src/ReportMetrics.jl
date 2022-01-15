@@ -119,8 +119,7 @@ function report_allocs(;
     filenames = String[]
     linenumbers = Int[]
     loc_ids = String[]
-    for (bytes, filename, linenumber) in
-        zip(case_bytes, case_filename, case_linenumber)
+    for (bytes, filename, linenumber) in zip(case_bytes, case_filename, case_linenumber)
         compile_pkg(filename, linenumber) && continue # Try to skip loading module if pkg_name is included
         loc_id = "$(filename_only(filename)):$(linenumber)"
         if !(bytes in all_bytes) && !(loc_id in loc_ids)
@@ -152,15 +151,14 @@ function report_allocs(;
 
     data = map(zip(filenames, linenumbers)) do (filename, linenumber)
         label = xtick_name(filename_only(filename), linenumber)
-        @show filename
-        @show label
         name = basename(pkg_dir_from_file(dirname(filename)))
-        @show name
-        if haskey(pkg_urls, name)
-            url = pkg_urls[name]
-        else
-            url = "https://www.google.com"
-        end
+        url = ""
+        # TODO: incorporate URLS into table
+        # if haskey(pkg_urls, name)
+        #     url = pkg_urls[name]
+        # else
+        #     url = "https://www.google.com"
+        # end
         PrettyTables.URLTextCell(label, url)
     end
 
@@ -211,7 +209,7 @@ For integrating with buildkite
 
 function format_locid(locid)
     relpth, lineno = split(locid, ':')
-    if !exhaustive && "BUILDKITE" in ENV && ENV["BUILDKITE"] == "true"
+    if haskey(ENV, "BUILDKITE") && ENV["BUILDKITE"] == "true"
         return join(
             [PKG_ORG, PKG_NAME, "blob", ENV["BUILDKITE_COMMIT"], relpth],
             '/',
