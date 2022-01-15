@@ -1,4 +1,5 @@
 import ReportAllocations
+import SpecialFunctions
 using Test
 
 ma_dir = ReportAllocations.mod_dir(ReportAllocations)
@@ -7,7 +8,7 @@ ma_dir = ReportAllocations.mod_dir(ReportAllocations)
     ReportAllocations.report_allocs(;
         job_name = "RA_example",
         filename = joinpath(ma_dir, "test", "rep_workload.jl"), # requires use of Profile.jl
-        deps_to_monitor = [ReportAllocations],
+        deps_to_monitor = [ReportAllocations, SpecialFunctions],
         dirs_to_monitor = [joinpath(ma_dir, "test")],
         n_unique_allocs = 10,
     )

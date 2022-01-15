@@ -1,5 +1,6 @@
 module ReportAllocations
 
+import Pkg
 import PrettyTables
 import Coverage
 
@@ -139,12 +140,33 @@ function report_allocs(;
     labels = xtick_name.(filename_only.(filenames), linenumbers)
 
     # TODO: get urls for hypertext
-    # labels = map(labels) do label
-    #     PrettyTables.URLTextCell(label, "https://www.google.com")
-    # end
+    pkg_urls = Dict(map(all_dirs_to_monitor) do dep_dir
+        proj = Pkg.Types.read_project(joinpath(dep_dir, "Project.toml"))
+        if proj.uuid ≠ nothing
+            url = Pkg.Operations.find_urls(Pkg.Types.Context().registries, proj.uuid)
+            Pair(proj.name, url)
+        else
+            Pair(proj.name, "https://www.google.com")
+        end
+    end...)
+
+    data = map(zip(filenames, linenumbers)) do (filename, linenumber)
+        label = xtick_name(filename_only(filename), linenumber)
+        @show filename
+        @show label
+        name = basename(pkg_dir_from_file(dirname(filename)))
+        @show name
+        if haskey(pkg_urls, name)
+            url = pkg_urls[name]
+        else
+            url = "https://www.google.com"
+        end
+        PrettyTables.URLTextCell(label, url)
+    end
 
     alloc_percent = map(all_kbytes) do bytes
-        bytes / sum_bytes
+        alloc_percent = bytes / sum_bytes
+        Int(round(alloc_percent*100, digits = 0))
     end
     header = (
         ["Allocations %", "Allocations", "<file>:<line number>"],
@@ -154,7 +176,7 @@ function report_allocs(;
     table_data = hcat(
         alloc_percent,
         all_kbytes,
-        labels,
+        data,
     )
 
     PrettyTables.pretty_table(
@@ -166,5 +188,37 @@ function report_allocs(;
         crop = :none,
     )
 end
+
+# Try to find a package directory from a file
+function pkg_dir_from_file(filename, candidates = String[])
+    _pkg_dir_from_file!(dirname(filename), candidates)
+    if length(candidates) > 1
+        @debug "Multiple Project.toml files found recursively through $filename.\n$(first(candidates)) used."
+    end
+    return first(candidates)
+end
+
+function _pkg_dir_from_file!(dir, candidates)
+    @assert ispath(dir)
+    if isfile(joinpath(dir, "Project.toml"))
+        push!(candidates, dir)
+        _pkg_dir_from_file!(dirname(dir), candidates)
+    end
+end
+
+#=
+For integrating with buildkite
+
+function format_locid(locid)
+    relpth, lineno = split(locid, ':')
+    if !exhaustive && "BUILDKITE" in ENV && ENV["BUILDKITE"] == "true"
+        return join(
+            [PKG_ORG, PKG_NAME, "blob", ENV["BUILDKITE_COMMIT"], relpth],
+            '/',
+        ) * "#$(lineno)"
+    end
+    return join([PKG_NAME, locid], '/')
+end
+=#
 
 end # module
