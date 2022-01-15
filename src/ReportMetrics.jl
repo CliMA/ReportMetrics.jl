@@ -20,7 +20,7 @@ mod_dir(x) = dirname(dirname(pathof(x)))
 
 Reports allocations
  - `job_name` name of job
- - `run_cmd` command to run script (alternatively use `filename`)
+ - `run_cmd` a `Base.Cmd` to run script (alternatively use `filename`)
  - `filename` file to run (alternatively use `run_cmd`)
  - `deps_to_monitor` a `Vector` of modules to monitor
  - `dirs_to_monitor` a `Vector` of directories to monitor
@@ -33,7 +33,7 @@ Reports allocations
 """
 function report_allocs(;
         job_name::String,
-        run_cmd::String = "",
+        run_cmd::Union{Nothing, Base.Cmd} = nothing,
         filename::String = "",
         deps_to_monitor::Vector{Module} = Module[],
         dirs_to_monitor::Vector{String} = String[],
@@ -52,8 +52,10 @@ function report_allocs(;
     if filename ≠ ""
         @assert isfile(filename)
         run(`$(Base.julia_cmd()) --project --track-allocation=all $filename`)
+    elseif run_cmd ≠ nothing
+        run(run_cmd)
     else
-        run(`$run_cmd`)
+        error("Need a file or `Base.Cmd` command.")
     end
     allocs = Coverage.analyze_malloc(all_dirs_to_monitor)
 
