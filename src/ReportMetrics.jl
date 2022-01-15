@@ -1,4 +1,4 @@
-module ReportAllocations
+module ReportMetrics
 
 import Pkg
 import PrettyTables
