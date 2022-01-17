@@ -23,6 +23,7 @@ Reports allocations
  - `dirs_to_monitor` a `Vector` of directories to monitor
  - `pkg_name` name of package being tested (for helping with string processing)
  - `n_unique_allocs` limits number of unique allocation sites to report (to avoid large tables)
+ - `suppress_url` (` = true`) suppress trying to use URLs in the output table
 
 ## Notest
  - `deps_to_monitor` and `dirs_to_monitor` are merged together.
@@ -36,6 +37,7 @@ function report_allocs(;
         is_loading_pkg::Function = (fn, ln) -> false,
         pkg_name::Union{Nothing, String} = nothing,
         n_unique_allocs::Int = 10,
+        suppress_url::Bool = true,
     )
 
     ##### Collect deps
@@ -93,8 +95,7 @@ function report_allocs(;
         end
     end
     @info "$(job_name): Number of unique allocating sites: $(length(all_bytes))"
-    all_kbytes = map(b -> div(b, 1024), all_bytes) # convert from bytes to KiB
-    sum_bytes = sum(all_kbytes)
+    sum_bytes = sum(all_bytes)
     xtick_name(filename, linenumber) = "$filename:$linenumber"
     labels = xtick_name.(process_fn.(filenames), linenumbers)
 
@@ -111,29 +112,33 @@ function report_allocs(;
 
     data = map(zip(filenames, linenumbers)) do (filename, linenumber)
         label = xtick_name(process_fn(filename), linenumber)
-        # name = basename(pkg_dir_from_file(dirname(filename)))
-        url = ""
-        # TODO: incorporate URLS into table
-        # if haskey(pkg_urls, name)
-        #     url = pkg_urls[name]
-        # else
-        #     url = "https://www.google.com"
-        # end
-        PrettyTables.URLTextCell(label, url)
+        if suppress_url
+            label
+        else
+            url = ""
+            # name = basename(pkg_dir_from_file(dirname(filename)))
+            # TODO: incorporate URLS into table
+            # if haskey(pkg_urls, name)
+            #     url = pkg_urls[name]
+            # else
+            #     url = "https://www.google.com"
+            # end
+            PrettyTables.URLTextCell(label, url)
+        end
     end
 
-    alloc_percent = map(all_kbytes) do bytes
-        alloc_percent = bytes / sum_bytes
-        Int(round(alloc_percent*100, digits = 0))
+    alloc_percent = map(all_bytes) do bytes
+        alloc_perc = bytes / sum_bytes
+        Int(round(alloc_perc*100, digits = 0))
     end
     header = (
         ["Allocations %", "Allocations", "<file>:<line number>"],
-        ["(alloc_i/∑allocs)", "(KiB)", ""],
+        ["(alloc_i/∑allocs)", "(bytes)", ""],
     )
 
     table_data = hcat(
         alloc_percent,
-        all_kbytes,
+        all_bytes,
         data,
     )
 
