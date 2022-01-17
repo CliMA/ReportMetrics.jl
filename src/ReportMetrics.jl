@@ -133,7 +133,7 @@ function report_allocs(;
     end
     header = (
         ["Allocations %", "Allocations", "<file>:<line number>"],
-        ["(alloc_i/∑allocs)", "(bytes)", ""],
+        ["(xᵢ/∑x)", "(bytes)", ""],
     )
 
     table_data = hcat(
