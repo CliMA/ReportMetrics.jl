@@ -153,7 +153,7 @@ function report_allocs(;
 
     data = map(zip(filenames, linenumbers)) do (filename, linenumber)
         label = xtick_name(filename_only(filename), linenumber)
-        name = basename(pkg_dir_from_file(dirname(filename)))
+        # name = basename(pkg_dir_from_file(dirname(filename)))
         url = ""
         # TODO: incorporate URLS into table
         # if haskey(pkg_urls, name)
