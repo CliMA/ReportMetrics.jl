@@ -38,11 +38,11 @@ prints out:
 
 ```julia
 [ Info: RA_example: Number of unique allocating sites: 2
-┌───────────────────┬─────────────┬─────────────────────────────────────────┐
-│     Allocations % │ Allocations │                    <file>:<line number> │
-│ (alloc_i/∑allocs) │     (bytes) │                                         │
-├───────────────────┼─────────────┼─────────────────────────────────────────┤
-│                77 │     7996800 │ ReportMetrics.jl/test/rep_workload.jl:7 │
-│                23 │     2387200 │ ReportMetrics.jl/test/rep_workload.jl:6 │
-└───────────────────┴─────────────┴─────────────────────────────────────────┘
+┌───────────────┬─────────────┬─────────────────────────────────────────┐
+│ Allocations % │ Allocations │                    <file>:<line number> │
+│       (xᵢ/∑x) │     (bytes) │                                         │
+├───────────────┼─────────────┼─────────────────────────────────────────┤
+│            77 │     7996800 │ ReportMetrics.jl/test/rep_workload.jl:7 │
+│            23 │     2387200 │ ReportMetrics.jl/test/rep_workload.jl:6 │
+└───────────────┴─────────────┴─────────────────────────────────────────┘
 ```
