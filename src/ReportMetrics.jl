@@ -10,22 +10,18 @@ mod_dir(x) = dirname(dirname(pathof(x)))
     report_allocs(;
         job_name::String,
         run_cmd::String = "",
-        filename::String = "",
         deps_to_monitor::Vector{Module} = Module[],
         dirs_to_monitor::Vector{String} = String[],
-        splitbys::Vector{String} = String[],
         pkg_name::Union{Nothing, String} = nothing,
         n_unique_allocs::Int = 10,
     )
 
 Reports allocations
  - `job_name` name of job
- - `run_cmd` a `Base.Cmd` to run script (alternatively use `filename`)
- - `filename` file to run (alternatively use `run_cmd`)
+ - `run_cmd` a `Base.Cmd` to run script
  - `deps_to_monitor` a `Vector` of modules to monitor
  - `dirs_to_monitor` a `Vector` of directories to monitor
- - `splitbys` a `Vector` of `String`s used to split / process names
- - `pkg_name` name of package being tested (tries to skip allocations related to loading the module)
+ - `pkg_name` name of package being tested (for helping with string processing)
  - `n_unique_allocs` limits number of unique allocation sites to report (to avoid large tables)
 
 ## Notest
@@ -34,10 +30,10 @@ Reports allocations
 function report_allocs(;
         job_name::String,
         run_cmd::Union{Nothing, Base.Cmd} = nothing,
-        filename::String = "",
         deps_to_monitor::Vector{Module} = Module[],
         dirs_to_monitor::Vector{String} = String[],
-        splitbys::Vector{String} = String[],
+        process_filename::Function = process_filename_default,
+        is_loading_pkg::Function = (fn, ln) -> false,
         pkg_name::Union{Nothing, String} = nothing,
         n_unique_allocs::Int = 10,
     )
@@ -49,14 +45,7 @@ function report_allocs(;
     all_dirs_to_monitor = [dirs_to_monitor..., dep_dirs...]
 
     ##### Run representative work & track allocations
-    if filename ≠ ""
-        @assert isfile(filename)
-        run(`$(Base.julia_cmd()) --project --track-allocation=all $filename`)
-    elseif run_cmd ≠ nothing
-        run(run_cmd)
-    else
-        error("Need a file or `Base.Cmd` command.")
-    end
+    run(run_cmd)
     allocs = Coverage.analyze_malloc(all_dirs_to_monitor)
 
     ##### Clean up files
@@ -72,40 +61,8 @@ function report_allocs(;
     end
 
     ##### Process and plot results
-
-    # name helper functions
-    function filename_only(fn)
-        if occursin(".jl", fn)
-            fn = join(split(fn, ".jl")[1:(end - 1)], ".jl") * ".jl"
-        end
-        fn = replace(fn, "\\" => "/") # for windows...
-        isempty(deps_to_monitor) && return fn
-
-        for dep_name in string.(deps_to_monitor)
-            if occursin(dep_name, fn)
-                fn = dep_name * last(split(fn, dep_name))
-            end
-        end
-        isempty(splitbys) && return fn
-        for splitby in splitbys
-            if occursin(splitby, fn)
-                fn = splitby * last(split(fn, splitby))
-            end
-        end
-        return fn
-    end
-    function compile_pkg(fn, linenumber)
-        c1 = if pkg_name ≠ nothing
-            endswith(filename_only(fn), pkg_name)
-        else
-            false
-        end
-        c2 = linenumber == 1
-        return c1 && c2
-    end
-
     filter!(x -> x.bytes ≠ 0, allocs)
-    filter!(x -> !compile_pkg(x.filename, x.linenumber), allocs) # Try to skip loading module if pkg_name is included
+    filter!(x -> !is_loading_pkg(x.filename, x.linenumber), allocs) # Try to skip loading module if pkg_name is included
 
     n_alloc_sites = length(allocs)
     if n_alloc_sites == 0
@@ -116,14 +73,15 @@ function report_allocs(;
     case_bytes = reverse(getproperty.(allocs, :bytes))
     case_filename = reverse(getproperty.(allocs, :filename))
     case_linenumber = reverse(getproperty.(allocs, :linenumber))
+    process_fn(fn) = post_process_fn(process_filename(fn))
 
     all_bytes = Int[]
     filenames = String[]
     linenumbers = Int[]
     loc_ids = String[]
     for (bytes, filename, linenumber) in zip(case_bytes, case_filename, case_linenumber)
-        compile_pkg(filename, linenumber) && continue # Try to skip loading module if pkg_name is included
-        loc_id = "$(filename_only(filename)):$(linenumber)"
+        is_loading_pkg(filename, linenumber) && continue # Try to skip loading module if pkg_name is included
+        loc_id = "$(process_fn(filename)):$(linenumber)"
         if !(bytes in all_bytes) && !(loc_id in loc_ids)
             push!(all_bytes, bytes)
             push!(filenames, filename)
@@ -138,7 +96,7 @@ function report_allocs(;
     all_kbytes = map(b -> div(b, 1024), all_bytes) # convert from bytes to KiB
     sum_bytes = sum(all_kbytes)
     xtick_name(filename, linenumber) = "$filename:$linenumber"
-    labels = xtick_name.(filename_only.(filenames), linenumbers)
+    labels = xtick_name.(process_fn.(filenames), linenumbers)
 
     # TODO: get urls for hypertext
     pkg_urls = Dict(map(all_dirs_to_monitor) do dep_dir
@@ -152,7 +110,7 @@ function report_allocs(;
     end...)
 
     data = map(zip(filenames, linenumbers)) do (filename, linenumber)
-        label = xtick_name(filename_only(filename), linenumber)
+        label = xtick_name(process_fn(filename), linenumber)
         # name = basename(pkg_dir_from_file(dirname(filename)))
         url = ""
         # TODO: incorporate URLS into table
@@ -205,6 +163,66 @@ function _pkg_dir_from_file!(dir, candidates)
         _pkg_dir_from_file!(dirname(dir), candidates)
     end
 end
+
+function post_process_fn(fn)
+    # Remove ###.mem.
+    fn = join(split(fn, ".jl")[1:(end - 1)], ".jl") * ".jl"
+    if startswith(fn, Base.Filesystem.path_separator)
+        fn = fn[2:end]
+    end
+    return fn
+end
+
+function process_filename_default(fn)
+    # TODO: make this work for Windows
+    if occursin(".julia/packages/", fn)
+        fn = last(split(fn, ".julia/packages/"))
+        pkg_name = first(split(fn, "/"))
+        if occursin("$pkg_name/src", fn)
+            return fn
+        else
+            fn = join(split(fn, pkg_name)[2:end], pkg_name)
+            sha = split(fn, "/")[2]
+            fn = replace(fn, sha*"/" => "")
+            fn = pkg_name*fn
+            return fn
+        end
+    end
+    return fn
+end
+
+#=
+# name helper functions
+function filename_only(fn)
+    if occursin(".jl", fn)
+        fn = join(split(fn, ".jl")[1:(end - 1)], ".jl") * ".jl"
+    end
+    fn = replace(fn, "\\" => "/") # for windows...
+    isempty(deps_to_monitor) && return fn
+
+    for dep_name in string.(deps_to_monitor)
+        if occursin(dep_name, fn)
+            fn = dep_name * last(split(fn, dep_name))
+        end
+    end
+    isempty(splitbys) && return fn
+    for splitby in splitbys
+        if occursin(splitby, fn)
+            fn = splitby * last(split(fn, splitby))
+        end
+    end
+    return fn
+end
+function compile_pkg(fn, linenumber)
+    c1 = if pkg_name ≠ nothing
+        endswith(filename_only(fn), pkg_name)
+    else
+        false
+    end
+    c2 = linenumber == 1
+    return c1 && c2
+end
+=#
 
 #=
 For integrating with buildkite

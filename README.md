@@ -16,7 +16,7 @@
 [bors-url]: https://app.bors.tech/repositories/41363
 
 
-A package for reporting allocations, which builds ontop of [Coverage.jl](https://github.com/JuliaCI/Coverage.jl)
+A package for reporting metrics (e.g., allocations), which builds ontop of [Coverage.jl](https://github.com/JuliaCI/Coverage.jl)
 
 ## Example
 
@@ -24,10 +24,13 @@ See our test suite for an example usage:
 
 ```julia
 import ReportMetrics
+ma_dir = ReportMetrics.mod_dir(ReportMetrics)
 ReportMetrics.report_allocs(;
     job_name = "RA_example",
-    filename = joinpath(ma_dir, "test", "rep_workload.jl"), # requires use of Profile.jl
+    run_cmd = `$(Base.julia_cmd()) --project --track-allocation=all $(joinpath(ma_dir, "test", "rep_workload.jl"))`,
+    deps_to_monitor = [ReportMetrics],
     dirs_to_monitor = [joinpath(ma_dir, "test")],
+    process_filename = x -> replace(x, dirname(ma_dir) => ""),
 )
 ```
 
@@ -35,11 +38,11 @@ prints out:
 
 ```julia
 [ Info: RA_example: Number of unique allocating sites: 2
-┌───────────────────┬─────────────┬─────────────────────────────────────────────┐
-│     Allocations % │ Allocations │                        <file>:<line number> │
-│ (alloc_i/∑allocs) │       (KiB) │                                             │
-├───────────────────┼─────────────┼─────────────────────────────────────────────┤
-│          0.606143 │      468718 │ ReportMetrics.jl/test/rep_workload.jl:9 │
-│          0.393857 │      304562 │ ReportMetrics.jl/test/rep_workload.jl:8 │
-└───────────────────┴─────────────┴─────────────────────────────────────────────┘
+┌───────────────────┬─────────────┬─────────────────────────────────────────┐
+│     Allocations % │ Allocations │                    <file>:<line number> │
+│ (alloc_i/∑allocs) │       (KiB) │                                         │
+├───────────────────┼─────────────┼─────────────────────────────────────────┤
+│                77 │        7809 │ ReportMetrics.jl/test/rep_workload.jl:7 │
+│                23 │        2331 │ ReportMetrics.jl/test/rep_workload.jl:6 │
+└───────────────────┴─────────────┴─────────────────────────────────────────┘
 ```
