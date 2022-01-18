@@ -117,7 +117,7 @@ function report_allocs(;
         end
     end...)
 
-    data = map(zip(filenames, linenumbers)) do (filename, linenumber)
+    fileinfo = map(zip(filenames, linenumbers)) do (filename, linenumber)
         label = xtick_name(process_fn(filename), linenumber)
         if suppress_url
             label
@@ -139,14 +139,14 @@ function report_allocs(;
         Int(round(alloc_perc*100, digits = 0))
     end
     header = (
-        ["Allocations %", "Allocations", "<file>:<line number>"],
-        ["(xᵢ/∑x)", "(bytes)", ""],
+        ["<file>:<line number>", "Allocations", "Allocations %"],
+        ["", "(bytes)", "(xᵢ/∑x)"],
     )
 
     table_data = hcat(
-        alloc_percent,
+        fileinfo,
         all_bytes,
-        data,
+        alloc_percent,
     )
 
     PrettyTables.pretty_table(
@@ -156,6 +156,7 @@ function report_allocs(;
         header_crayon = PrettyTables.crayon"yellow bold",
         subheader_crayon = PrettyTables.crayon"green bold",
         crop = :none,
+        alignment = [:l, :c, :c],
     )
     if write_csv
         mkpath(csv_prefix_path)
