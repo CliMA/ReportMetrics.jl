@@ -14,6 +14,8 @@ mod_dir(x) = dirname(dirname(pathof(x)))
         dirs_to_monitor::Vector{String} = String[],
         pkg_name::Union{Nothing, String} = nothing,
         n_unique_allocs::Int = 10,
+        write_csv::Bool = false,
+        csv_prefix_path::String = "",
     )
 
 Reports allocations
@@ -24,6 +26,8 @@ Reports allocations
  - `pkg_name` name of package being tested (for helping with string processing)
  - `n_unique_allocs` limits number of unique allocation sites to report (to avoid large tables)
  - `suppress_url` (` = true`) suppress trying to use URLs in the output table
+ - `write_csv` Bool to write a csv output
+ - `csv_prefix_path` prefix path to write the csv file
 
 ## Notest
  - `deps_to_monitor` and `dirs_to_monitor` are merged together.
@@ -38,6 +42,9 @@ function report_allocs(;
         pkg_name::Union{Nothing, String} = nothing,
         n_unique_allocs::Int = 10,
         suppress_url::Bool = true,
+        write_csv::Bool = false,
+        csv_prefix_path::String = "",
+        format_locid::Function = x -> x,
     )
 
     ##### Collect deps
@@ -150,6 +157,15 @@ function report_allocs(;
         subheader_crayon = PrettyTables.crayon"green bold",
         crop = :none,
     )
+    if write_csv
+        mkpath(csv_prefix_path)
+        open(joinpath(csv_prefix_path, "$job_name" * ".csv"), "w") do fh
+            for (bytes, loc) in zip(all_bytes, loc_ids)
+                println(fh, "$bytes\t|\t$(format_locid(loc))")
+                # println(fh, "$bytes,$loc")
+            end
+        end
+    end
 end
 
 # Try to find a package directory from a file
