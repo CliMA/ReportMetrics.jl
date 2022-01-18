@@ -1,4 +1,24 @@
+#####
+##### Invalidations (needed first due to package loading effects)
+#####
+
+import SnoopCompileCore
+invalidations = SnoopCompileCore.@snoopr begin
+
+    include("rep_workload.jl") # change to `include("test/rep_workload.jl")` for local run
+
+end;
+
+if !("." in LOAD_PATH)
+    push!(LOAD_PATH, ".")
+end
 import ReportMetrics
+ReportMetrics.report_invalidations(;
+    job_name = "RA_example_inv",
+    invalidations,
+    process_filename = x -> last(split(x, "packages/")),
+)
+
 using Test
 
 ma_dir = ReportMetrics.mod_dir(ReportMetrics)

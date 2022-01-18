@@ -1,3 +1,5 @@
 [deps]
 Profile = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
+SnoopCompileCore = "e2b509da-e806-4183-be48-004708413034"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

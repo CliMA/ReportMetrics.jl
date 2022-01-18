@@ -1,4 +1,7 @@
 import Profile
+
+import SpecialFunctions # for triggering invalidations
+
 x = rand(1000)
 
 function foo()
