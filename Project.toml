@@ -1,7 +1,7 @@
 name = "ReportMetrics"
 uuid = "c1654acf-408b-4272-96ce-66c258df8a6c"
 authors = ["Charles Kawczynski <kawczynski.charles@gmail.com>"]
-version = "0.2.2"
+version = "0.2.3"
 
 [deps]
 Coverage = "a2441757-f6aa-5fb2-8edb-039e3f45d037"
@@ -12,4 +12,5 @@ SnoopCompile = "aa65fe97-06da-5843-b5b1-d5d13cad87d2"
 [compat]
 Coverage = "1.4"
 PrettyTables = "1.3"
+SnoopCompile = "2"
 julia = "1"
