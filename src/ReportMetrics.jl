@@ -264,4 +264,98 @@ function format_locid(locid)
 end
 =#
 
+import SnoopCompile
+
+"""
+    report_invalidations(;
+        job_name::String,
+        invalidations,
+        process_filename::Function = x -> x,
+        write_csv::Bool = false,
+        csv_prefix_path::String = "",
+        format_locid::Function = x -> x,
+    )
+
+Report a table of invalidations.
+
+For documentation, see https://timholy.github.io/SnoopCompile.jl/stable/snoopr/
+
+## Usage example
+```julia
+import SnoopCompileCore
+invalidations = SnoopCompileCore.@snoopr begin
+
+    # load packages & do representative work
+
+end;
+import ReportMetrics
+ReportMetrics.report_invalidations(;
+    job_name = "MyWork",
+    invalidations,
+    process_filename = x -> last(split(x, "packages/")),
+)
+```
+"""
+function report_invalidations(;
+        job_name::String,
+        invalidations,
+        process_filename::Function = x -> x,
+        write_csv::Bool = false,
+        csv_prefix_path::String = "",
+        format_locid::Function = x -> x,
+    )
+
+    trees = reverse(SnoopCompile.invalidation_trees(invalidations))
+
+    n_total_invalidations = length(SnoopCompile.uinvalidated(invalidations))
+    @info "Number of invalidations for $job_name: $n_total_invalidations"
+
+    invs_per_method = map(trees) do methinvs
+        SnoopCompile.countchildren(methinvs)
+    end
+    sum_invs = sum(invs_per_method)
+
+    n_invalidations_percent = map(invs_per_method) do inv
+        inv_perc = inv / sum_invs
+        Int(round(inv_perc*100, digits = 0))
+    end
+    meth_name = map(trees) do inv
+        "$(inv.method.name)"
+    end
+    fileinfo = map(trees) do inv
+        "$(process_filename(string(inv.method.file))):$(inv.method.line)"
+    end
+
+    header = (
+        ["<file name>:<line number>", "Method Name", "Invalidations", "Invalidations %"],
+        ["", "", "Number", "(xᵢ/∑x)"],
+    )
+
+    table_data = hcat(
+        fileinfo,
+        meth_name,
+        invs_per_method,
+        n_invalidations_percent,
+    )
+
+    PrettyTables.pretty_table(
+        table_data;
+        header,
+        formatters = PrettyTables.ft_printf("%s", 2:2),
+        header_crayon = PrettyTables.crayon"yellow bold",
+        subheader_crayon = PrettyTables.crayon"green bold",
+        crop = :none,
+        alignment = [:l, :c, :c, :c],
+    )
+    if write_csv
+        mkpath(csv_prefix_path)
+        open(joinpath(csv_prefix_path, "$job_name" * ".csv"), "w") do fh
+            for (name, finfo, inv) in zip(meth_name, fileinfo, invs_per_method)
+                println(fh, "$(format_locid(finfo))\t|\t$name\t|\t$inv")
+            end
+        end
+    end
+
+end
+
 end # module
