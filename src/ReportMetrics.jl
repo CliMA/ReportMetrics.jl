@@ -79,32 +79,35 @@ function report_allocs(;
         return
     end
 
-    case_bytes = reverse(getproperty.(allocs, :bytes))
-    case_filename = reverse(getproperty.(allocs, :filename))
-    case_linenumber = reverse(getproperty.(allocs, :linenumber))
+    all_bytes = reverse(getproperty.(allocs, :bytes))
+    all_filenames = reverse(getproperty.(allocs, :filename))
+    all_linenumbers = reverse(getproperty.(allocs, :linenumber))
     process_fn(fn) = post_process_fn(process_filename(fn))
 
-    all_bytes = Int[]
-    filenames = String[]
-    linenumbers = Int[]
-    loc_ids = String[]
-    for (bytes, filename, linenumber) in zip(case_bytes, case_filename, case_linenumber)
+    bytes_subset = Int[]
+    filenames_subset = String[]
+    linenumbers_subset = Int[]
+    loc_ids_subset = String[]
+    truncated_allocs = false
+    for (bytes, filename, linenumber) in zip(all_bytes, all_filenames, all_linenumbers)
         is_loading_pkg(filename, linenumber) && continue # Try to skip loading module if pkg_name is included
         loc_id = "$(process_fn(filename)):$(linenumber)"
-        if !(bytes in all_bytes) && !(loc_id in loc_ids)
-            push!(all_bytes, bytes)
-            push!(filenames, filename)
-            push!(linenumbers, linenumber)
-            push!(loc_ids, loc_id)
-            if length(all_bytes) ≥ n_unique_allocs
+        if !(bytes in bytes_subset) && !(loc_id in loc_ids_subset)
+            push!(bytes_subset, bytes)
+            push!(filenames_subset, filename)
+            push!(linenumbers_subset, linenumber)
+            push!(loc_ids_subset, loc_id)
+            if length(bytes_subset) ≥ n_unique_allocs
+                truncated_allocs = true
                 break
             end
         end
     end
-    @info "$(job_name): Number of unique allocating sites: $(length(all_bytes))"
-    sum_bytes = sum(all_bytes)
+    sum_bytes = sum(bytes_subset)
+    trunc_msg = truncated_allocs ? " (truncated) " : ""
+    @info "$(job_name): $(length(bytes_subset)) unique allocating sites, $sum_bytes total bytes$trunc_msg"
     xtick_name(filename, linenumber) = "$filename:$linenumber"
-    labels = xtick_name.(process_fn.(filenames), linenumbers)
+    labels = xtick_name.(process_fn.(filenames_subset), linenumbers_subset)
 
     # TODO: get urls for hypertext
     pkg_urls = Dict(map(all_dirs_to_monitor) do dep_dir
@@ -117,7 +120,7 @@ function report_allocs(;
         end
     end...)
 
-    fileinfo = map(zip(filenames, linenumbers)) do (filename, linenumber)
+    fileinfo = map(zip(filenames_subset, linenumbers_subset)) do (filename, linenumber)
         label = xtick_name(process_fn(filename), linenumber)
         if suppress_url
             label
@@ -134,7 +137,7 @@ function report_allocs(;
         end
     end
 
-    alloc_percent = map(all_bytes) do bytes
+    alloc_percent = map(bytes_subset) do bytes
         alloc_perc = bytes / sum_bytes
         Int(round(alloc_perc*100, digits = 0))
     end
@@ -145,7 +148,7 @@ function report_allocs(;
 
     table_data = hcat(
         fileinfo,
-        all_bytes,
+        bytes_subset,
         alloc_percent,
     )
 
@@ -161,7 +164,7 @@ function report_allocs(;
     if write_csv
         mkpath(csv_prefix_path)
         open(joinpath(csv_prefix_path, "$job_name" * ".csv"), "w") do fh
-            for (bytes, loc) in zip(all_bytes, loc_ids)
+            for (bytes, loc) in zip(bytes_subset, loc_ids_subset)
                 println(fh, "$bytes\t|\t$(format_locid(loc))")
                 # println(fh, "$bytes,$loc")
             end
