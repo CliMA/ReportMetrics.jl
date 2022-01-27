@@ -54,18 +54,22 @@ function report_allocs(;
     all_dirs_to_monitor = [dirs_to_monitor..., dep_dirs...]
 
     ##### Run representative work & track allocations
-    run(run_cmd)
-    allocs = Coverage.analyze_malloc(all_dirs_to_monitor)
+    local allocs
+    try
+        run(run_cmd)
+        allocs = Coverage.analyze_malloc(all_dirs_to_monitor)
+    finally
 
-    ##### Clean up files
-    for d in all_dirs_to_monitor
-        all_files = [
-            joinpath(root, f) for
-            (root, dirs, files) in Base.Filesystem.walkdir(d) for f in files
-        ]
-        all_mem_files = filter(x -> endswith(x, ".mem"), all_files)
-        for f in all_mem_files
-            rm(f)
+        ##### Clean up files
+        for d in all_dirs_to_monitor
+            all_files = [
+                joinpath(root, f) for
+                (root, dirs, files) in Base.Filesystem.walkdir(d) for f in files
+            ]
+            all_mem_files = filter(x -> endswith(x, ".mem"), all_files)
+            for f in all_mem_files
+                rm(f)
+            end
         end
     end
 
