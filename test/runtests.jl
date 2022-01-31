@@ -21,7 +21,7 @@ ReportMetrics.report_invalidations(;
 
 using Test
 
-ma_dir = ReportMetrics.mod_dir(ReportMetrics)
+ma_dir = pkgdir(ReportMetrics)
 
 @testset "ReportMetrics" begin
     ReportMetrics.report_allocs(;
