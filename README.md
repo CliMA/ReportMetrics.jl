@@ -24,7 +24,7 @@ See our test suite for an example usage:
 
 ```julia
 import ReportMetrics
-ma_dir = ReportMetrics.mod_dir(ReportMetrics)
+ma_dir = pkgdir(ReportMetrics)
 ReportMetrics.report_allocs(;
     job_name = "RA_example",
     run_cmd = `$(Base.julia_cmd()) --project --track-allocation=all $(joinpath(ma_dir, "test", "rep_workload.jl"))`,

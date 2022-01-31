@@ -4,8 +4,6 @@ import Pkg
 import PrettyTables
 import Coverage
 
-mod_dir(x) = dirname(dirname(pathof(x)))
-
 """
     report_allocs(;
         job_name::String,
@@ -49,7 +47,7 @@ function report_allocs(;
 
     ##### Collect deps
     dep_dirs = map(deps_to_monitor) do dep
-        mod_dir(dep)
+        pkgdir(dep)
     end
     all_dirs_to_monitor = [dirs_to_monitor..., dep_dirs...]
 
