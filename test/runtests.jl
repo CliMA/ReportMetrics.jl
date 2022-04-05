@@ -18,6 +18,12 @@ ReportMetrics.report_invalidations(;
     invalidations,
     process_filename = x -> last(split(x, "packages/")),
 )
+ReportMetrics.report_invalidations(;
+    job_name = "RA_example_inv",
+    invalidations,
+    process_filename = x -> last(split(x, "packages/")),
+    n_rows = 3,
+)
 
 using Test
 
