@@ -1,6 +1,7 @@
 import Profile
 
 import SpecialFunctions # for triggering invalidations
+import Static # for triggering invalidations
 
 x = rand(1000)
 
